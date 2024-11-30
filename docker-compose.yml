@@ -7,6 +7,7 @@ services:
     restart: unless-stopped
     environment:
       - TZ=Europe/Moscow
+    env_file: .env
     volumes:
       - advent-bot-data:/app
     networks:
