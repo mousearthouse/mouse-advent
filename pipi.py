@@ -107,7 +107,13 @@ def start_handler(message):
 def handle_open_image(call):
     user_id = str(call.message.chat.id)
     current_day = get_current_day()
-    sent_images = eval(get_user(user_id))  # Retrieve sent images as a list
+
+    user_images = get_user(user_id)
+    if not user_images:
+        bot.send_message(user_id, f"Похоже, что мы еще не знакомы. Отправь команду /start.")
+        return
+    
+    sent_images = eval(user_images)  # Retrieve sent images as a list
     remaining_days = current_day - len(sent_images)
 
     if remaining_days > 0:
@@ -116,14 +122,14 @@ def handle_open_image(call):
         sent_images.append(chosen_image)
         update_user_images(user_id, str(sent_images))  # Update sent images
         bot.send_photo(user_id, open(chosen_image, 'rb'))
-        bot.send_message(user_id, f"Картинка за {current_day}-й день открыта! 🎁")
+        bot.send_message(user_id, f"Картинка за {current_day}-й день открыта!")
     else:
         bot.send_message(user_id, "Ты уже открыл все доступные на сегодня картинки!")
 
 def schedule_daily_messages():
     print("Ежедневная рассылка запущена!")
-    schedule.every().day.at("00:00").do(increment_day)
-    schedule.every().day.at("00:00:05").do(send_daily_message)
+    schedule.every().day.at("07:00").do(increment_day)
+    schedule.every().day.at("07:00:05").do(send_daily_message)
     while True:
         schedule.run_pending()
         time.sleep(1)
