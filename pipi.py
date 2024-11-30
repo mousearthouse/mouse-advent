@@ -5,6 +5,7 @@ import time
 import sqlite3
 import schedule
 import threading
+import json
 
 from telebot.types import InlineKeyboardButton, InlineKeyboardMarkup
 
@@ -16,6 +17,8 @@ pictures_dir = os.path.join(os.path.dirname(__file__), 'pictures')
 pictures = [os.path.join(pictures_dir, f'{i}.png') for i in range(1, 4)]
 
 db_file = 'data/advent_bot.db'
+anekdotes_file = 'anekdotes.json'
+default_start_time = "07:00"
 
 # Initialize the database
 def init_db():
@@ -34,6 +37,16 @@ def init_db():
         # Initialize current_day if not set
         cursor.execute("INSERT OR IGNORE INTO general (key, value) VALUES ('current_day', '0')")
         conn.commit()
+
+
+def load_anekdotes():
+    try:
+        with open(anekdotes_file, 'r', encoding='utf-8') as file:
+            return json.load(file)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {}
+
+anekdotes = load_anekdotes()
 
 # Utility functions
 def get_current_day():
@@ -99,7 +112,7 @@ def start_handler(message):
 
     bot.reply_to(
         message,
-        f"Добро пожаловать! Сегодня {get_current_day()} день адвента. Каждый день ты сможешь получить одну смешнявку 🎄"
+        f"Добро пожаловать! Сегодня {get_current_day()} день адвента. Каждый день ты сможешь получить две смешнявки: картинку и анекдот. Некоторые анекдоты сгенерированы нейронкой, некоторые взяты из интернета, некоторые подкинули мне друзья 🎄"
     )
     send_daily_message(user_id)
 
@@ -123,13 +136,19 @@ def handle_open_image(call):
         update_user_images(user_id, str(sent_images))  # Update sent images
         bot.send_photo(user_id, open(chosen_image, 'rb'))
         bot.send_message(user_id, f"Картинка за {current_day}-й день открыта!")
+        chosen_image_name = os.path.basename(chosen_image)
+        anekdot = anekdotes.get(chosen_image_name, "Анекдот не найден :()")
+        bot.send_message(user_id, anekdot)
     else:
         bot.send_message(user_id, "Ты уже открыл все доступные на сегодня картинки!")
 
 def schedule_daily_messages():
     print("Ежедневная рассылка запущена!")
-    schedule.every().day.at("07:00").do(increment_day)
-    schedule.every().day.at("07:00:05").do(send_daily_message)
+    start_time = os.environ.get("START_TIME", default_start_time)
+    print("Время старта нового дня:", start_time)
+
+    schedule.every().day.at(start_time).do(increment_day)
+    schedule.every().day.at(f"{start_time}:05").do(send_daily_message)
     while True:
         schedule.run_pending()
         time.sleep(1)
