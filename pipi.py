@@ -122,8 +122,8 @@ def handle_open_image(call):
 
 def schedule_daily_messages():
     print("Ежедневная рассылка запущена!")
-    schedule.every().day.at("18:47").do(increment_day)
-    schedule.every().day.at("18:47:05").do(send_daily_message)
+    schedule.every().day.at("00:00").do(increment_day)
+    schedule.every().day.at("00:00:05").do(send_daily_message)
     while True:
         schedule.run_pending()
         time.sleep(1)
