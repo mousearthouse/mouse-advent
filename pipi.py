@@ -15,7 +15,7 @@ bot = telebot.TeleBot(API_TOKEN)
 pictures_dir = os.path.join(os.path.dirname(__file__), 'pictures')
 pictures = [os.path.join(pictures_dir, f'{i}.png') for i in range(1, 4)]
 
-db_file = 'advent_bot.db'
+db_file = 'data/advent_bot.db'
 
 # Initialize the database
 def init_db():

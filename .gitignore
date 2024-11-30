@@ -162,8 +162,7 @@ cython_debug/
 #.idea/
 
 # Database files
-user_data.json
-advent_bot.db
+data/*
 
 # Environment
 .env

@@ -9,7 +9,7 @@ services:
       - TZ=Europe/Moscow
     env_file: .env
     volumes:
-      - advent-bot-db-data:/app/advent_bot.db
+      - advent-bot-db-data:/app/data
     networks:
       - advent-network
 
