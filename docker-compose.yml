@@ -9,7 +9,7 @@ services:
       - TZ=Europe/Moscow
     env_file: .env
     volumes:
-      - advent-bot-data:/app
+      - advent-bot-db-data:/app/advent_bot.db
     networks:
       - advent-network
 
@@ -18,4 +18,4 @@ networks:
     driver: bridge
 
 volumes:
-  advent-bot-data:
+  advent-bot-db-data:
