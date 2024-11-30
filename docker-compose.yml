@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  advent-bot:
+    build: .
+    container_name: advent-bot
+    restart: unless-stopped
+    environment:
+      - TZ=Europe/Moscow
+    volumes:
+      - advent-bot-data:/app
+    networks:
+      - advent-network
+
+networks:
+  advent-network:
+    driver: bridge
+
+volumes:
+  advent-bot-data:
