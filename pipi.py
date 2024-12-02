@@ -8,13 +8,14 @@ import threading
 import json
 
 from telebot.types import InlineKeyboardButton, InlineKeyboardMarkup
+from telebot import apihelper
 
 
 API_TOKEN = os.getenv("TELEGRAM_TOKEN")
 bot = telebot.TeleBot(API_TOKEN)
 
 pictures_dir = os.path.join(os.path.dirname(__file__), 'pictures')
-pictures = [os.path.join(pictures_dir, f'{i}.png') for i in range(1, 6)]
+pictures = [os.path.join(pictures_dir, f'{i}.png') for i in range(1, 7)]
 
 db_file = 'data/advent_bot.db'
 anekdotes_file = 'anekdotes.json'
@@ -82,6 +83,22 @@ def update_user_images(user_id, sent_images):
         cursor.execute("UPDATE users SET sent_images=? WHERE user_id=?", (sent_images, user_id))
         conn.commit()
 
+def find_right_users(all_users):
+    current_day = get_current_day()
+    right_users = []
+    for (uid,) in all_users:
+        user_images = get_user(uid)
+
+        if not user_images:
+            bot.send_message(uid, f"Похоже, что мы еще не знакомы. Отправь команду /start.")
+            return
+        
+        sent_images = eval(user_images)
+        remaining_days = current_day - len(sent_images)
+        if remaining_days > 0:
+            right_users.append(uid)
+    return right_users
+
 # Bot logic
 def send_daily_message(user_id=None):
     current_day = get_current_day()
@@ -93,7 +110,11 @@ def send_daily_message(user_id=None):
             cursor.execute("SELECT user_id FROM users")
             users = cursor.fetchall()
 
-        for (uid,) in users:
+    right_users = find_right_users(users)
+    for user in right_users:
+        uid = user
+        print(uid)
+        try:
             keyboard = InlineKeyboardMarkup()
             open_button = InlineKeyboardButton("Открыть", callback_data="open_image")
             keyboard.add(open_button)
@@ -103,6 +124,17 @@ def send_daily_message(user_id=None):
                 f"День {current_day}! Нажми кнопку, чтобы открыть картинку",
                 reply_markup=keyboard
             )
+        except apihelper.ApiTelegramException as e:
+            if e.result.status_code == 403 and "bot was blocked by the user" in e.description:
+                print(f"Пользователь {uid} заблокировал бота. Удаляю его из базы.")
+                cursor.execute("DELETE FROM users WHERE user_id=?", (uid,))
+                conn.commit()
+            elif e.result.status_code == 400:
+                print(f"Пользователь {uid} удалил бота. Удаляю его из базы.")
+                cursor.execute("DELETE FROM users WHERE user_id=?", (uid,))
+                conn.commit()
+            else:
+                print(f"Ошибка при отправке сообщения пользователю {uid}: {e}")
 
 @bot.message_handler(commands=['start'])
 def start_handler(message):
