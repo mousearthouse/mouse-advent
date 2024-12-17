@@ -15,7 +15,7 @@ API_TOKEN = os.getenv("TELEGRAM_TOKEN")
 bot = telebot.TeleBot(API_TOKEN)
 
 pictures_dir = os.path.join(os.path.dirname(__file__), 'pictures')
-pictures = [os.path.join(pictures_dir, f'{i}.png') for i in range(1, 17)]
+pictures = [os.path.join(pictures_dir, f'{i}.png') for i in range(1, 19)]
 
 db_file = 'data/advent_bot.db'
 anekdotes_file = 'anekdotes.json'
@@ -160,6 +160,12 @@ def handle_open_image(call):
     
     sent_images = eval(user_images)  # Retrieve sent images as a list
     remaining_days = current_day - len(sent_images)
+    
+    # fast fix of the problem with picture 16:
+    if current_day == "17":
+        bot.send_photo((user_id, open(pictures[16], 'rb')))
+        bot.send_message(user_id, "Картинка за 16-й день пришла не всем, но теперь точно всем! с:")
+        bot.send_message(user_id, anekdotes.get("16.png"))
 
     if remaining_days > 0:
         available_images = list(set(pictures) - set(sent_images))
