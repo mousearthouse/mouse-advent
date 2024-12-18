@@ -162,21 +162,26 @@ def handle_open_image(call):
     remaining_days = current_day - len(sent_images)
     
     # fast fix of the problem with picture 16:
-    if current_day == "17":
-        bot.send_photo((user_id, open(pictures[16], 'rb')))
+    if current_day == 18:
+        picture_path = os.path.join("pictures", "16.png")
+        with open(picture_path, "rb") as photo:
+            bot.send_photo(user_id, photo)
         bot.send_message(user_id, "Картинка за 16-й день пришла не всем, но теперь точно всем! с:")
-        bot.send_message(user_id, anekdotes.get("16.png"))
+        bot.send_message(user_id, anekdotes.get("16.png", "Анекдот не найден :()"))
+        sent_images.append(picture_path)
+        update_user_images(user_id, str(sent_images))
 
     if remaining_days > 0:
         available_images = list(set(pictures) - set(sent_images))
         chosen_image = random.choice(available_images)
-        sent_images.append(chosen_image)
-        update_user_images(user_id, str(sent_images))  # Update sent images
+        
         bot.send_photo(user_id, open(chosen_image, 'rb'))
         bot.send_message(user_id, f"Картинка за {current_day}-й день открыта!")
         chosen_image_name = os.path.basename(chosen_image)
         anekdot = anekdotes.get(chosen_image_name, "Анекдот не найден :()")
         bot.send_message(user_id, anekdot)
+        sent_images.append(chosen_image)
+        update_user_images(user_id, str(sent_images))
         remaining_days = current_day - len(sent_images)
         if remaining_days > 0:
             bot.send_message(user_id, "Ты открыл не все доступные картинки. Нажми на кнопку 'открыть' еще раз!")
