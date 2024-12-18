@@ -161,16 +161,6 @@ def handle_open_image(call):
     sent_images = eval(user_images)  # Retrieve sent images as a list
     remaining_days = current_day - len(sent_images)
     
-    # fast fix of the problem with picture 16:
-    if current_day == 18:
-        picture_path = os.path.join("pictures", "16.png")
-        with open(picture_path, "rb") as photo:
-            bot.send_photo(user_id, photo)
-        bot.send_message(user_id, "Картинка за 16-й день пришла не всем, но теперь точно всем! с:")
-        bot.send_message(user_id, anekdotes.get("16.png", "Анекдот не найден :()"))
-        sent_images.append(picture_path)
-        update_user_images(user_id, str(sent_images))
-
     if remaining_days > 0:
         available_images = list(set(pictures) - set(sent_images))
         chosen_image = random.choice(available_images)
