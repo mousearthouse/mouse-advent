@@ -15,7 +15,7 @@ API_TOKEN = os.getenv("TELEGRAM_TOKEN")
 bot = telebot.TeleBot(API_TOKEN)
 
 pictures_dir = os.path.join(os.path.dirname(__file__), 'pictures')
-pictures = [os.path.join(pictures_dir, f'{i}.png') for i in range(1, 25)]
+pictures = [os.path.join(pictures_dir, f'{i}.png') for i in range(1, 27)]
 
 db_file = 'data/advent_bot.db'
 anekdotes_file = 'anekdotes.json'
