@@ -169,8 +169,11 @@ def handle_open_image(call):
         sent_images.append(chosen_image)
         update_user_images(user_id, str(sent_images))
         remaining_days = current_day - len(sent_images)
+        if user_id == '620069122':
+            bot.send_message(user_id, "Саня, специально для тебя: чтоб хуй стоял и деньги были. с нг любимка!!!")
         if remaining_days > 0:
             bot.send_message(user_id, "Ты открыл не все доступные картинки. Нажми на кнопку 'открыть' еще раз!")
+        
 
     if remaining_days > 0:
         available_images = list(set(pictures) - set(sent_images))
