@@ -15,7 +15,7 @@ API_TOKEN = os.getenv("TELEGRAM_TOKEN")
 bot = telebot.TeleBot(API_TOKEN)
 
 pictures_dir = os.path.join(os.path.dirname(__file__), 'pictures')
-pictures = [os.path.join(pictures_dir, f'{i}.png') for i in range(1, 31)]
+pictures = [os.path.join(pictures_dir, f'{i}.png') for i in range(1, 32)]
 
 db_file = 'data/advent_bot.db'
 anekdotes_file = 'anekdotes.json'
@@ -160,7 +160,18 @@ def handle_open_image(call):
     
     sent_images = eval(user_images)  # Retrieve sent images as a list
     remaining_days = current_day - len(sent_images)
-    
+
+    if current_day == 31:
+        chosen_image = 'pictures/31.png'
+        bot.send_photo(user_id, open(chosen_image, 'rb'))
+        anekdot = anekdotes.get('31.png', "Анекдот не найден :()")
+        bot.send_message(user_id, anekdot)
+        sent_images.append(chosen_image)
+        update_user_images(user_id, str(sent_images))
+        remaining_days = current_day - len(sent_images)
+        if remaining_days > 0:
+            bot.send_message(user_id, "Ты открыл не все доступные картинки. Нажми на кнопку 'открыть' еще раз!")
+
     if remaining_days > 0:
         available_images = list(set(pictures) - set(sent_images))
         chosen_image = random.choice(available_images)
