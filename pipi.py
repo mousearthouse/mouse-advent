@@ -57,7 +57,7 @@ def load_anekdotes():
         resp = requests.get(download_url, timeout=10)
         resp.raise_for_status()
         return json.loads(resp.text)
-    
+
     except Exception as e:
         print("ERROR:", e)
         return {}
@@ -65,7 +65,7 @@ def load_anekdotes():
 anekdotes = load_anekdotes()
 print(anekdotes)
 
-default_start_time = "09:30"
+default_start_time = "10:30"
 
 def init_db():
     conn = get_conn()
@@ -194,12 +194,12 @@ def send_daily_message(user_id=None):
         print(uid)
         try:
             keyboard = InlineKeyboardMarkup()
-            open_button = InlineKeyboardButton("Открыть", callback_data="open_image")
+            open_button = InlineKeyboardButton("Открыть 🎀", callback_data="open_image")
             keyboard.add(open_button)
 
             bot.send_message(
                 uid,
-                f"День {current_day}! Нажми кнопку, чтобы открыть картинку",
+                f"День {current_day}! Нажми кнопку, чтобы открыть картинку ✨",
                 reply_markup=keyboard
             )
         except apihelper.ApiTelegramException as e:
@@ -222,7 +222,7 @@ def start_handler(message):
 
     bot.reply_to(
         message,
-        f"Добро пожаловать! Сегодня {get_current_day()} день адвента. Каждый день ты сможешь получить две смешнявки: картинку и анекдот. Некоторые анекдоты сгенерированы нейронкой, некоторые взяты из интернета, некоторые подкинули мне друзья 🎄"
+        f"Добро пожаловать! Сегодня {get_current_day()} день адвента. Каждый день ты можешь получить две смешнявки: картинку и анекдот. Некоторые анекдоты взяты из интернета, некоторые сгенерированы нейронкой, некоторые подкинули мне друзья 🎄 Можно предложить свой анекдот или идею для картинки - я буду благодарна! Для этого можно написать мне в личку: @forggi. Надеюсь, адвент тебе понравится :D"
     )
     send_daily_message(user_id)
 
@@ -235,7 +235,7 @@ def handle_open_image(call):
     if not user_images:
         bot.send_message(user_id, f"Похоже, что мы еще не знакомы. Отправь команду /start.")
         return
-    
+
     sent_images = list(map(int, eval(user_images)))
     remaining_days = current_day - len(sent_images)
 
@@ -248,14 +248,14 @@ def handle_open_image(call):
         chosen_url = pictures[str(chosen_day)]
 
         bot.send_photo(user_id, chosen_url)
-        bot.send_message(user_id, f"Картинка за {current_day}-й день открыта!")
-        anekdot = anekdotes.get(str(chosen_day), "Анекдот не найден :()")
+        bot.send_message(user_id, f"Картинка за {current_day}-й день открыта! 🎊")
+        anekdot = anekdotes.get(str(chosen_day), "Анекдот не найден :(")
         bot.send_message(user_id, anekdot)
         sent_images.append(chosen_day)
         update_user_images(user_id, str(sent_images))
         remaining_days = current_day - len(sent_images)
         if remaining_days > 0:
-            bot.send_message(user_id, "Ты открыл не все доступные картинки. Нажми на кнопку 'открыть' еще раз!")
+            bot.send_message(user_id, "У тебя остались еще доступные картинки. Нажми на кнопку 'открыть' еще раз!")
     else:
         bot.send_message(user_id, "Ты уже открыл все доступные на сегодня картинки!")
 
