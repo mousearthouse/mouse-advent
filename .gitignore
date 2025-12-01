@@ -166,3 +166,4 @@ data/*
 
 # Environment
 .env
+anekdotes.json
