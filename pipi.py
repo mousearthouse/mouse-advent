@@ -2,7 +2,6 @@ import os
 import telebot
 import random
 import time
-import sqlite3
 import schedule
 import threading
 import json
@@ -12,8 +11,8 @@ import psycopg2
 from telebot.types import InlineKeyboardButton, InlineKeyboardMarkup
 from telebot import apihelper
 
-# API_TOKEN = os.getenv("TELEGRAM_TOKEN")
-bot = telebot.TeleBot("7669754606:AAGf4XaWyIUJKxYna3vCzcgLIh_EcxOrc1k")
+API_TOKEN = os.getenv("TELEGRAM_TOKEN")
+bot = telebot.TeleBot(API_TOKEN)
 
 YANDEX_PUBLIC_KEY = "https://disk.yandex.ru/d/FD7SyyPVQuoP4A"
 
@@ -41,9 +40,21 @@ def load_pictures_from_yandex():
 pictures = load_pictures_from_yandex()
 print(pictures)
 
-anekdotes_file = 'anekdotes.json'
-default_start_time = "23:36"
-# Initialize the database
+ANEKDOTES_URL = "https://disk.yandex.ru/d/03LYovVrh16HSQ/anekdotes.json?dl=1"
+
+def load_anekdotes():
+    try:
+        resp = requests.get(ANEKDOTES_URL)
+        resp.raise_for_status()
+        return json.loads(resp.text)
+    except Exception:
+        return {}
+
+anekdotes = load_anekdotes()
+print(anekdotes)
+
+default_start_time = "09:30"
+
 def init_db():
     conn = get_conn()
     cursor = conn.cursor()
@@ -81,16 +92,6 @@ def get_conn():
         host=os.getenv("DB_HOST"),
         port=os.getenv("DB_PORT")
     )
-
-def load_anekdotes():
-    try:
-        with open(anekdotes_file, 'r', encoding='utf-8') as file:
-            return json.load(file)
-    except (FileNotFoundError, json.JSONDecodeError):
-        return {}
-
-anekdotes = load_anekdotes()
-print(anekdotes)
 
 # Utility functions
 def get_current_day():
