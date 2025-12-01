@@ -6,39 +6,81 @@ import sqlite3
 import schedule
 import threading
 import json
+import requests
+import psycopg2
 
 from telebot.types import InlineKeyboardButton, InlineKeyboardMarkup
 from telebot import apihelper
 
+# API_TOKEN = os.getenv("TELEGRAM_TOKEN")
+bot = telebot.TeleBot("7669754606:AAGf4XaWyIUJKxYna3vCzcgLIh_EcxOrc1k")
 
-API_TOKEN = os.getenv("TELEGRAM_TOKEN")
-bot = telebot.TeleBot(API_TOKEN)
+YANDEX_PUBLIC_KEY = "https://disk.yandex.ru/d/FD7SyyPVQuoP4A"
 
-pictures_dir = os.path.join(os.path.dirname(__file__), 'pictures')
-pictures = [os.path.join(pictures_dir, f'{i}.png') for i in range(1, 32)]
+def load_pictures_from_yandex():
+    url = "https://cloud-api.yandex.net/v1/disk/public/resources"
+    params = {
+        "public_key": YANDEX_PUBLIC_KEY,
+        "limit": 1000
+    }
 
-db_file = 'data/advent_bot.db'
+    data = requests.get(url, params=params, timeout = 10).json()
+
+    pictures = {}
+
+    for item in data.get('_embedded', {}).get('items', []):
+        name = item.get('name', '')
+        if name.lower().endswith('.jpg'):
+            day = name.split('.')[0]
+            direct_url = item.get('file')
+            if direct_url:
+                pictures[day] = direct_url
+
+    return pictures
+
+pictures = load_pictures_from_yandex()
+print(pictures)
+
 anekdotes_file = 'anekdotes.json'
-default_start_time = "07:00"
-
+default_start_time = "23:36"
 # Initialize the database
 def init_db():
-    with sqlite3.connect(db_file) as conn:
-        cursor = conn.cursor()
-        # Create tables
-        cursor.execute('''CREATE TABLE IF NOT EXISTS general (
+    conn = get_conn()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS general (
             key TEXT PRIMARY KEY,
             value TEXT
-        )''')
-        cursor.execute('''CREATE TABLE IF NOT EXISTS users (
+        );
+    """)
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS users (
             user_id TEXT PRIMARY KEY,
             username TEXT,
             sent_images TEXT
-        )''')
-        # Initialize current_day if not set
-        cursor.execute("INSERT OR IGNORE INTO general (key, value) VALUES ('current_day', '0')")
-        conn.commit()
+        );
+    """)
 
+    cursor.execute("""
+        INSERT INTO general (key, value)
+        VALUES ('current_day', '0')
+        ON CONFLICT (key) DO NOTHING;
+    """)
+
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+def get_conn():
+    return psycopg2.connect(
+        dbname=os.getenv("DB_NAME"),
+        user=os.getenv("DB_USER"),
+        password=os.getenv("DB_PASS"),
+        host=os.getenv("DB_HOST"),
+        port=os.getenv("DB_PORT")
+    )
 
 def load_anekdotes():
     try:
@@ -48,40 +90,64 @@ def load_anekdotes():
         return {}
 
 anekdotes = load_anekdotes()
+print(anekdotes)
 
 # Utility functions
 def get_current_day():
-    with sqlite3.connect(db_file) as conn:
-        cursor = conn.cursor()
-        cursor.execute("SELECT value FROM general WHERE key='current_day'")
-        return int(cursor.fetchone()[0])
+    conn = get_conn()
+    cursor = conn.cursor()
+    cursor.execute("SELECT value FROM general WHERE key='current_day'")
+    value = cursor.fetchone()[0]
+    cursor.close()
+    conn.close()
+    return int(value)
 
 def increment_day():
-    with sqlite3.connect(db_file) as conn:
-        cursor = conn.cursor()
-        current_day = get_current_day() + 1
-        cursor.execute("UPDATE general SET value=? WHERE key='current_day'", (str(current_day),))
-        conn.commit()
+    conn = get_conn()
+    cursor = conn.cursor()
+    current_day = get_current_day() + 1
+    cursor.execute(
+        "UPDATE general SET value=%s WHERE key='current_day'",
+        (str(current_day),)
+    )
+    conn.commit()
+    cursor.close()
+    conn.close()
 
 def add_user(user_id, username):
-    with sqlite3.connect(db_file) as conn:
-        cursor = conn.cursor()
-        cursor.execute('''INSERT OR IGNORE INTO users (user_id, username, sent_images) 
-                          VALUES (?, ?, ?)''', (user_id, username, '[]'))
-        conn.commit()
+    conn = get_conn()
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        INSERT INTO users (user_id, username, sent_images)
+        VALUES (%s, %s, %s)
+        ON CONFLICT (user_id) DO NOTHING
+        """,
+        (user_id, username, "[]")
+    )
+    conn.commit()
+    cursor.close()
+    conn.close()
 
 def get_user(user_id):
-    with sqlite3.connect(db_file) as conn:
-        cursor = conn.cursor()
-        cursor.execute("SELECT sent_images FROM users WHERE user_id=?", (user_id,))
-        row = cursor.fetchone()
-        return row[0] if row else None
+    conn = get_conn()
+    cursor = conn.cursor()
+    cursor.execute("SELECT sent_images FROM users WHERE user_id=%s", (user_id,))
+    row = cursor.fetchone()
+    cursor.close()
+    conn.close()
+    return row[0] if row else None
 
 def update_user_images(user_id, sent_images):
-    with sqlite3.connect(db_file) as conn:
-        cursor = conn.cursor()
-        cursor.execute("UPDATE users SET sent_images=? WHERE user_id=?", (sent_images, user_id))
-        conn.commit()
+    conn = get_conn()
+    cursor = conn.cursor()
+    cursor.execute(
+        "UPDATE users SET sent_images=%s WHERE user_id=%s",
+        (sent_images, user_id)
+    )
+    conn.commit()
+    cursor.close()
+    conn.close()
 
 def find_right_users(all_users):
     current_day = get_current_day()
@@ -90,9 +156,9 @@ def find_right_users(all_users):
         user_images = get_user(uid)
 
         if not user_images:
-            bot.send_message(uid, f"Похоже, что мы еще не знакомы. Отправь команду /start.")
-            return
-        
+            bot.send_message(uid, "Похоже, что мы еще не знакомы. Отправь /start.")
+            return []
+
         sent_images = eval(user_images)
         remaining_days = current_day - len(sent_images)
         if remaining_days > 0:
@@ -102,13 +168,12 @@ def find_right_users(all_users):
 # Bot logic
 def send_daily_message(user_id=None):
     current_day = get_current_day()
-    with sqlite3.connect(db_file) as conn:
-        cursor = conn.cursor()
-        if user_id:
-            users = [(user_id,)]
-        else:
-            cursor.execute("SELECT user_id FROM users")
-            users = cursor.fetchall()
+    conn = get_conn()
+    cursor = conn.cursor()
+    cursor.execute("SELECT user_id FROM users")
+    users = cursor.fetchall()
+    cursor.close()
+    conn.close()
 
     right_users = find_right_users(users)
     for user in right_users:
@@ -158,33 +223,22 @@ def handle_open_image(call):
         bot.send_message(user_id, f"Похоже, что мы еще не знакомы. Отправь команду /start.")
         return
     
-    sent_images = eval(user_images)  # Retrieve sent images as a list
+    sent_images = list(map(int, eval(user_images)))
     remaining_days = current_day - len(sent_images)
 
-    if current_day == 31:
-        chosen_image = 'pictures/31.png'
-        bot.send_photo(user_id, open(chosen_image, 'rb'))
-        anekdot = anekdotes.get('31.png', "Анекдот не найден :()")
-        bot.send_message(user_id, anekdot)
-        sent_images.append(chosen_image)
-        update_user_images(user_id, str(sent_images))
-        remaining_days = current_day - len(sent_images)
-        if user_id == '620069122':
-            bot.send_message(user_id, "Саня, специально для тебя: чтоб хуй стоял и деньги были. с нг любимка!!!")
-        if remaining_days > 0:
-            bot.send_message(user_id, "Ты открыл не все доступные картинки. Нажми на кнопку 'открыть' еще раз!")
-        
-
     if remaining_days > 0:
-        available_images = list(set(pictures) - set(sent_images))
-        chosen_image = random.choice(available_images)
-        
-        bot.send_photo(user_id, open(chosen_image, 'rb'))
+        available_days = [
+            int(day) for day in pictures.keys()
+            if int(day) not in sent_images
+        ]
+        chosen_day = random.choice(available_days)
+        chosen_url = pictures[str(chosen_day)]
+
+        bot.send_photo(user_id, chosen_url)
         bot.send_message(user_id, f"Картинка за {current_day}-й день открыта!")
-        chosen_image_name = os.path.basename(chosen_image)
-        anekdot = anekdotes.get(chosen_image_name, "Анекдот не найден :()")
+        anekdot = anekdotes.get(str(chosen_day), "Анекдот не найден :()")
         bot.send_message(user_id, anekdot)
-        sent_images.append(chosen_image)
+        sent_images.append(chosen_day)
         update_user_images(user_id, str(sent_images))
         remaining_days = current_day - len(sent_images)
         if remaining_days > 0:
