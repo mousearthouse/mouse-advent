@@ -40,14 +40,26 @@ def load_pictures_from_yandex():
 pictures = load_pictures_from_yandex()
 print(pictures)
 
-ANEKDOTES_URL = "https://disk.yandex.ru/d/03LYovVrh16HSQ/anekdotes.json?dl=1"
+ANEKDOTES_URL = "https://disk.yandex.ru/d/067XkjwlbOS8aw"
 
 def load_anekdotes():
+    url = "https://cloud-api.yandex.net/v1/disk/public/resources/download"
+    params = {
+        "public_key": ANEKDOTES_URL
+    }
+
     try:
-        resp = requests.get(ANEKDOTES_URL)
+        data = requests.get(url, params=params, timeout=10).json()
+
+        download_url = data.get("href")
+        if not download_url:
+            return {}
+        resp = requests.get(download_url, timeout=10)
         resp.raise_for_status()
         return json.loads(resp.text)
-    except Exception:
+    
+    except Exception as e:
+        print("ERROR:", e)
         return {}
 
 anekdotes = load_anekdotes()
