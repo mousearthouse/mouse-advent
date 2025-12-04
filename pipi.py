@@ -205,14 +205,16 @@ def send_daily_message(user_id=None):
         except apihelper.ApiTelegramException as e:
             if e.result.status_code == 403 and "bot was blocked by the user" in e.description:
                 print(f"Пользователь {uid} заблокировал бота. Удаляю его из базы.")
-                cursor.execute("DELETE FROM users WHERE user_id=?", (uid,))
+                cursor.execute("DELETE FROM users WHERE user_id=%s", (uid,))
                 conn.commit()
             elif e.result.status_code == 400:
                 print(f"Пользователь {uid} удалил бота. Удаляю его из базы.")
-                cursor.execute("DELETE FROM users WHERE user_id=?", (uid,))
+                cursor.execute("DELETE FROM users WHERE user_id=%s", (uid,))
                 conn.commit()
             else:
                 print(f"Ошибка при отправке сообщения пользователю {uid}: {e}")
+    cursor.close()
+    conn.close()
 
 @bot.message_handler(commands=['start'])
 def start_handler(message):
