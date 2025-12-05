@@ -12,33 +12,68 @@ from telebot.types import InlineKeyboardButton, InlineKeyboardMarkup
 from telebot import apihelper
 
 API_TOKEN = os.getenv("TELEGRAM_TOKEN")
-bot = telebot.TeleBot(API_TOKEN)
 
+IMAGES_DIR = "/app/images"
 YANDEX_PUBLIC_KEY = "https://disk.yandex.ru/d/FD7SyyPVQuoP4A"
 
-def load_pictures_from_yandex():
+# def load_pictures_from_yandex():
+#     url = "https://cloud-api.yandex.net/v1/disk/public/resources"
+#     params = {
+#         "public_key": YANDEX_PUBLIC_KEY,
+#         "limit": 1000
+#     }
+
+#     data = requests.get(url, params=params, timeout = 10).json()
+
+#     pictures = {}
+
+#     for item in data.get('_embedded', {}).get('items', []):
+#         name = item.get('name', '')
+#         if name.lower().endswith('.jpg'):
+#             day = name.split('.')[0]
+#             direct_url = item.get('file')
+#             if direct_url:
+#                 pictures[day] = direct_url
+
+#     return pictures
+
+
+def download_all_images():
     url = "https://cloud-api.yandex.net/v1/disk/public/resources"
-    params = {
-        "public_key": YANDEX_PUBLIC_KEY,
-        "limit": 1000
-    }
+    params = {"public_key": YANDEX_PUBLIC_KEY, "limit": 1000}
 
-    data = requests.get(url, params=params, timeout = 10).json()
+    data = requests.get(url, params=params).json()
+    items = data.get("_embedded", {}).get("items", [])
 
-    pictures = {}
+    if not os.path.exists(IMAGES_DIR):
+        os.makedirs(IMAGES_DIR)
 
-    for item in data.get('_embedded', {}).get('items', []):
-        name = item.get('name', '')
-        if name.lower().endswith('.jpg'):
+    files = {}
+
+    for item in items:
+        name = item.get("name")
+        if name.lower().endswith(".jpg"):
+            file_url = item.get("file")
+            if not file_url:
+                continue
+
+            filepath = os.path.join(IMAGES_DIR, name)
+
+            if not os.path.exists(filepath):
+                print(f"Скачиваю {name}...")
+                resp = requests.get(file_url)
+                with open(filepath, "wb") as f:
+                    f.write(resp.content)
+
             day = name.split('.')[0]
-            direct_url = item.get('file')
-            if direct_url:
-                pictures[day] = direct_url
+            files[day] = filepath
 
-    return pictures
+    print("Все картинки загружены.")
+    return files
 
-pictures = load_pictures_from_yandex()
-print(pictures)
+print("Загружаю картинки из Яндекс.Диска...")
+pictures = download_all_images()
+print("Готово!", pictures)
 
 ANEKDOTES_URL = "https://disk.yandex.ru/d/067XkjwlbOS8aw"
 
@@ -185,8 +220,6 @@ def send_daily_message(user_id=None):
     cursor = conn.cursor()
     cursor.execute("SELECT user_id FROM users")
     users = cursor.fetchall()
-    cursor.close()
-    conn.close()
 
     right_users = find_right_users(users)
     for user in right_users:
@@ -234,32 +267,48 @@ def handle_open_image(call):
     current_day = get_current_day()
 
     user_images = get_user(user_id)
-    if not user_images:
-        bot.send_message(user_id, f"Похоже, что мы еще не знакомы. Отправь команду /start.")
+    if user_images is None:
+        bot.send_message(
+            user_id,
+            "Похоже, что мы ещё не знакомы. Отправь команду /start."
+        )
         return
 
-    sent_images = list(map(int, eval(user_images)))
+    try:
+        sent_images = json.loads(user_images)
+    except Exception:
+        sent_images = []
+
     remaining_days = current_day - len(sent_images)
-
-    if remaining_days > 0:
-        available_days = [
-            int(day) for day in pictures.keys()
-            if int(day) not in sent_images
-        ]
-        chosen_day = random.choice(available_days)
-        chosen_url = pictures[str(chosen_day)]
-
-        bot.send_photo(user_id, chosen_url)
-        bot.send_message(user_id, f"Картинка за {current_day}-й день открыта! 🎊")
-        anekdot = anekdotes.get(str(chosen_day), "Анекдот не найден :(")
-        bot.send_message(user_id, anekdot)
-        sent_images.append(chosen_day)
-        update_user_images(user_id, str(sent_images))
-        remaining_days = current_day - len(sent_images)
-        if remaining_days > 0:
-            bot.send_message(user_id, "У тебя остались еще доступные картинки. Нажми на кнопку 'открыть' еще раз!")
-    else:
+    if remaining_days <= 0:
         bot.send_message(user_id, "Ты уже открыл все доступные на сегодня картинки!")
+        return
+    available_days = [int(day) for day in pictures.keys() if int(day) not in sent_images]
+    if not available_days:
+        bot.send_message(user_id, "Ты уже открыл все доступные на сегодня картинки!")
+        return
+
+    chosen_day = random.choice(available_days)
+    chosen_path = pictures[str(chosen_day)]  # теперь путь вида /app/images/3.jpg
+
+    try:
+        with open(chosen_path, "rb") as img:
+            bot.send_photo(user_id, img)
+    except Exception as e:
+        bot.send_message(user_id, f"Ошибка при загрузке файла: {e}")
+        return
+
+    bot.send_message(user_id, f"Картинка за {chosen_day}-й день открыта! 🎊")
+    anekdot = anekdotes.get(str(chosen_day), "Анекдот не найден :(")
+    bot.send_message(user_id, anekdot)
+    sent_images.append(chosen_day)
+    update_user_images(user_id, json.dumps(sent_images))
+
+    if current_day - len(sent_images) > 0:
+        bot.send_message(
+            user_id,
+            "У тебя остались ещё доступные картинки. Нажми кнопку «Открыть» ещё раз!"
+        )
 
 def schedule_daily_messages():
     print("Ежедневная рассылка запущена!")
