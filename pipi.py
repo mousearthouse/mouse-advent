@@ -291,6 +291,18 @@ def handle_open_image(call):
             user_id,
             "У тебя остались ещё доступные картинки. Нажми кнопку «Открыть» ещё раз!"
         )
+        try:
+            keyboard = InlineKeyboardMarkup()
+            open_button = InlineKeyboardButton("Открыть 🎀", callback_data="open_image")
+            keyboard.add(open_button)
+
+            bot.send_message(
+                user_id,
+                f"День {current_day}! Нажми кнопку, чтобы открыть картинку ✨",
+                reply_markup=keyboard
+            )
+        except apihelper.ApiTelegramException as e:
+            print("oh no smth went wrong when trying to send a button again")
 
 def schedule_daily_messages():
     print("Ежедневная рассылка запущена!")
