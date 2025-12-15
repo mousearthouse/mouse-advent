@@ -12,31 +12,10 @@ from telebot.types import InlineKeyboardButton, InlineKeyboardMarkup
 from telebot import apihelper
 
 API_TOKEN = os.getenv("TELEGRAM_TOKEN")
+bot = telebot(API_TOKEN)
 
 IMAGES_DIR = "/app/images"
 YANDEX_PUBLIC_KEY = "https://disk.yandex.ru/d/FD7SyyPVQuoP4A"
-
-# def load_pictures_from_yandex():
-#     url = "https://cloud-api.yandex.net/v1/disk/public/resources"
-#     params = {
-#         "public_key": YANDEX_PUBLIC_KEY,
-#         "limit": 1000
-#     }
-
-#     data = requests.get(url, params=params, timeout = 10).json()
-
-#     pictures = {}
-
-#     for item in data.get('_embedded', {}).get('items', []):
-#         name = item.get('name', '')
-#         if name.lower().endswith('.jpg'):
-#             day = name.split('.')[0]
-#             direct_url = item.get('file')
-#             if direct_url:
-#                 pictures[day] = direct_url
-
-#     return pictures
-
 
 def download_all_images():
     url = "https://cloud-api.yandex.net/v1/disk/public/resources"
@@ -205,7 +184,7 @@ def find_right_users(all_users):
 
         if not user_images:
             bot.send_message(uid, "Похоже, что мы еще не знакомы. Отправь /start.")
-            return []
+            continue
 
         sent_images = eval(user_images)
         remaining_days = current_day - len(sent_images)
@@ -218,8 +197,11 @@ def send_daily_message(user_id=None):
     current_day = get_current_day()
     conn = get_conn()
     cursor = conn.cursor()
-    cursor.execute("SELECT user_id FROM users")
-    users = cursor.fetchall()
+    if user_id:
+        users = [(user_id,)]
+    else:
+        cursor.execute("SELECT user_id FROM users")
+        users = cursor.fetchall()
 
     right_users = find_right_users(users)
     for user in right_users:
@@ -298,7 +280,7 @@ def handle_open_image(call):
         bot.send_message(user_id, f"Ошибка при загрузке файла: {e}")
         return
 
-    bot.send_message(user_id, f"Картинка за {chosen_day}-й день открыта! 🎊")
+    bot.send_message(user_id, f"Картинка за {len(sent_images)+1}-й день открыта! 🎊")
     anekdot = anekdotes.get(str(chosen_day), "Анекдот не найден :(")
     bot.send_message(user_id, anekdot)
     sent_images.append(chosen_day)
